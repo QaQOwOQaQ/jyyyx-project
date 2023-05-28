@@ -14,7 +14,8 @@ void moreMemory()
 
 int main()
 {
-    set_new_handler(moreMemory);
-    int *p = new int[100000000000000000];
+    puts("start successfully!");
+    // set_new_handler(moreMemory);
+    // int *p = new int[100000000000000000];
     return 0;
 }

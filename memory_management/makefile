@@ -1,5 +1,7 @@
 CC = g++
 FLAGS = -Wall -Wextra 
+
+
 TEST = src/test.cpp
 TEST_BIN = bin/test
 
@@ -22,13 +24,13 @@ MALLOC_BIN = bin/mem_malloc
 
 
 # ---------------------------------------------------------------------------------
-.POHONY:malloc
+.PHONY:malloc
 malloc:
 	$(CC) $(FLAGS) $(MALLOC) -o $(MALLOC_BIN)
 	./$(MALLOC_BIN)
 
 
-.POHONY:a4
+.PHONY:a4
 a4:
 	$(CC) $(FLAGS) $(ALLOCA4) -o $(ALLOCA4_BIN)
 	./$(ALLOCA4_BIN)
@@ -39,24 +41,24 @@ a3:
 	./$(ALLOCA3_BIN)
 
 
-.POHONY:a2
+.PHONY:a2
 a2:
 	$(CC) $(FLAGS) $(ALLOCA2) -o $(ALLOCA2_BIN)
 	./$(ALLOCA2_BIN)
 
 
-.POHONY:a1
+.PHONY:a1
 a1:
 	$(CC) $(FLAGS) $(ALLOCA1) -o $(ALLOCA1_BIN)
 	./$(ALLOCA1_BIN)
 
 
-.POHONY:test
+.PHONY:test
 test:
 	$(CC) $(FLAGS) $(TEST) -o $(TEST_BIN)
 	./$(TEST_BIN)
 
 
-.POHONY:clean
+.PHONY:clean
 clean:
 	rm -rf *.o *.i *.out *.in bin/*
