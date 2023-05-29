@@ -2,9 +2,13 @@
 #define CPP_THREAD_POOL_GURAD
 
 /* README HERE FIRST 😊 
-* just as you see, I add 😊 to designate that the 
-* block of code or message is considerable important ~~ 
-* [ref here](https://github.com/jencoldeng/ThreadPool/blob/master/thread_pool.h)
+* just as you see, I add 😊 to splash that the 
+* block of code or comment is considerable important ~~ 
+* @copy right QAQ
+* [ref here](https://github.com/jencoldeng/ThreadPool/blob/master/thread_pool.h) 
+*/
+
+/* [TODO] add manager thread
 */
 
 #include <my_header.h>
@@ -15,14 +19,14 @@ public:
     typedef std::function<void()> Task;
 
 public:
-    ThreadPool(int);
+    ThreadPool(int/*threads*/);
     ~ThreadPool();
     
     /* My change 😊
-    * the author set the function of copy ctor and operator= 
-    * at private, why? if user call those two function
-    * it will get link error not call the deleted function
-    * so I move those to the public privillage
+    * the author set the function of copy ctor and operator= in private
+    * why? it will get link error when running but call the deleted function 
+    * when user call those two function, then I move those to the public privillage
+    * so it will get CE when compile early and set in public .. whatever where ~~
     */
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool& operator=(const ThreadPool&) = delete;
@@ -36,10 +40,10 @@ public:
 
     // add task 😊
     template<typename Func, typename... Args>
-            // 😊 Cant: Args... &&args and why?
+            // 😊 [CANT] Args... &&args and why?
     void push_task(Func &&f, Args&&... args);
 
-    // batch(批量) add tasks 😊
+    // add batch tasks 😊
     // return false if cant't add
     template<typename TaskContainer>
     bool push_batch_task(TaskContainer &&task_list);
@@ -62,7 +66,7 @@ public:
     bool push_batch_delay_task(int64_t delay_ms, TaskContainer &&task_list);
 
 private:
-    // count the number of ms currently from epoch
+    // cout the time span since epoch in ms
     static int64_t Milliseconds()
     {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -70,14 +74,13 @@ private:
         ).count();
     }
 
-
 private:
     // represent a delay task
     class TimeTask
     {
-    // father will can't access TimeTask's data if set private here
+    // father class wouldn't access TimeTask's data member if set private here
     public:
-        int64_t exec_tm;
+        int64_t exec_tm; // expected execute time
         Task task;
 
     public:
@@ -87,7 +90,7 @@ private:
         TimeTask(const TimeTask& t)
         : exec_tm(t.exec_tm), task(t.task) {}
         
-        // 😊 also add && to matche &
+        // 😊 also add right reference to matche left reference
         TimeTask(const TimeTask&& t) 
         : exec_tm(t.exec_tm), task(std::move(t.task)) {}
 
@@ -98,7 +101,8 @@ private:
             return *this;
         }
 
-        // 😊 return > ??
+        // 😊 because we will push delay task in priority_queue
+        // and we want queue top have the minimum exec_tm 
         bool operator<(const TimeTask &it) const 
         {
             return exec_tm > it.exec_tm;
@@ -107,8 +111,8 @@ private:
 private:
     mutable std::mutex queue_mutex;
     std::condition_variable queue_condition;
-    std::vector<std::thread> workers; // manage thread
     std::deque<Task> tasks; // queue of tasks
+    std::vector<std::thread> workers; // manage thread
     std::priority_queue<TimeTask> delay_tasks; // queue of delay task
     std::atomic_bool stop_flag{false}; // flag of quit
 };
@@ -116,7 +120,7 @@ private:
 /*=========================================================================================*/
 inline ThreadPool::ThreadPool(int threads)
 {
-    // init thread callbabk function
+    // init thread callbabk function(worker thread)
     for(int i = 0; i < threads; i ++ )
     {
         workers.emplace_back([this]{
@@ -126,26 +130,32 @@ inline ThreadPool::ThreadPool(int threads)
                 std::unique_lock<std::mutex> lock(queue_mutex);
                 // atomic::load() return the current value of atomic variable
                 queue_condition.wait(lock, [this]{
+                    // wait until the following prediction satisfy
+                    //      -- until have a task or stop the thread pool
                     return stop_flag.load() || !tasks.empty() || !delay_tasks.empty();
                 });
 
+                // Although the thread pool is stopped, do the task pushed before
                 if(stop_flag.load() && tasks.empty())   return ;
-
+                
                 // do delay task
                 if(!delay_tasks.empty())
                 {
                     auto now_tm = ThreadPool::Milliseconds();
                     auto wait_tm = delay_tasks.top().exec_tm - now_tm;
-                    if(wait_tm <= 0) // <=0 ?? 😊
+                    if(wait_tm <= 0) // the current time have passed the executed time which user wanted
+                                     // ececuted this task immediately
                     {
                         // get and pop
-                        task = delay_tasks.top().task;
+                        task = delay_tasks.top().task; // why not move() ? 😊
                         delay_tasks.pop();
-                        // execute
+                        // execute(need't to lock when execute a task)
                         lock.unlock();
-                        if(task) task();    // needn't to lock when executing
+                        if(task) task();    // why check ? 😊
                         lock.lock();
                     }
+                    // if not emergency delay task and no normal task
+                    // please just wait a meantime
                     else if(tasks.empty() && !stop_flag.load())
                     {
                         queue_condition.wait_for(lock, std::chrono::milliseconds(wait_tm));
@@ -159,11 +169,8 @@ inline ThreadPool::ThreadPool(int threads)
                     task = std::move(tasks.front());
                     tasks.pop_front();
                     // execute
-                    /* [BUG😭] 傻逼了，在这里，先 unlock，在 lock
-                    * 我竟然写成了先 lock 再 unlock .... 
-                    */
                     lock.unlock();
-                    if(task) task();
+                    if(task) task(); // why check ? 😊
                     lock.lock();
                 }
             } // for end
@@ -182,10 +189,10 @@ inline void ThreadPool::stop()
 {
     //  use local scope {} to release unique_lock early
     {
-        // 😊 why locked ???
         std::unique_lock<std::mutex> lock(queue_mutex);
-        // atomic::store() wil replace the current value
+        // atomic::store() will replace the current value
         stop_flag.store(true);
+        // wake all worker thread to complete the remained task
         queue_condition.notify_all();
     }
     for(std::thread &worker : workers)
@@ -204,6 +211,7 @@ template<typename Func, typename... Args>
 void ThreadPool::push_task(Func &&f, Args&&... args)
 {
     std::unique_lock<std::mutex> lock(queue_mutex);
+
     // if threadPool has been stoped, do task imediatelly
     if(stop_flag.load()) 
     {
@@ -220,9 +228,8 @@ void ThreadPool::push_task(Func &&f, Args&&... args)
         if(sizeof...(args))
             tasks.emplace_back(std::bind(std::forward<Func>(f), std::forward<Args>(args)...));
         else 
-        {
             tasks.emplace_back(std::move(f));
-        }
+        queue_condition.notify_one();
     }
 }
 
@@ -238,11 +245,10 @@ bool ThreadPool::push_batch_task(TaskContainer &&task_list)
 
     std::unique_lock<std::mutex> lock(queue_mutex);
     for(auto &task : task_list)
-    {
         tasks.emplace_back(std::move(task));
-    }
-    task_list.clear();
-
+    task_list.clear();  // clear user's task queue
+    // becuause we add a bitch of tasks
+    // so notify all here but notice one
     queue_condition.notify_all();
     return true;
 }
@@ -259,19 +265,20 @@ auto ThreadPool::push_future_task(Func &&f, Args&&... args)
     std::future<return_type> res = task->get_future();
 
     std::unique_lock<std::mutex> lock(queue_mutex);
-    if(stop_flag.load())
+    if(stop_flag.load()) // execute immediately if thread pool is stooped
     {
         lock.unlock();
         (*task)();
     }
     else 
     {
-        tasks.emplace_back([task]{ (*task)(); });
+        tasks.emplace_back([task]{ (*task)(); }); // ??? 😊
         queue_condition.notify_one();
     }
     return res;
 }
 
+// normal task push back and priority task push front
 template<typename Func, typename... Args>
 void ThreadPool::push_priority_task(Func &&f, Args&&... args)
 {
@@ -284,7 +291,6 @@ void ThreadPool::push_priority_task(Func &&f, Args&&... args)
     else 
     {
         if(sizeof...(args))
-                // 😊 why use forward?
             tasks.emplace_front(std::bind(std::forward<Func>(f), std::forward<Args>(args)...));
         else 
             tasks.emplace_front(std::move(f));
@@ -295,6 +301,7 @@ void ThreadPool::push_priority_task(Func &&f, Args&&... args)
 template<typename Func, typename... Args>
 void ThreadPool::push_delay_task(int64_t delay_ms, Func &&f, Args&&... args)
 {
+    // expected maximum execute time
     auto exec_tm = Milliseconds() + delay_ms;
     std::unique_lock<std::mutex> lock(queue_mutex);
     if(sizeof...(Args))

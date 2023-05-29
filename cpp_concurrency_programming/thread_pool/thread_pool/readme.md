@@ -1,9 +1,9 @@
 # ThreadPool Implement 
-# C version
-## reference
+# 一、C version
+## 0x00 reference
 [C -- reference](https://subingwen.cn/linux/threadpool/#5-%E6%BA%90%E6%96%87%E4%BB%B6%E5%AE%9A%E4%B9%89)
 
-## insight
+## 0x01 insight
 线程池中主要有如下三个组件：
 1. 任务队列 task_queue
 2. 工作线程 worker
@@ -24,15 +24,15 @@
 
 ---------------------------------------------
 
-# C++ version
-## reference
+# 二、C++ version
+## 0x00 reference
 [github-simple-thread-pool](https://github.com/jencoldeng/ThreadPool/tree/master)
 
-## files
+## 0x01 files
 cpp_thread_pool.h
 cpp_main.cpp
 
-## learn design
+## 0x02 learn design
 ### 1. result_of
 `result_of<>::type` 
 
@@ -53,6 +53,15 @@ pool->push_future_task(
     std::mem_fn(&Num::summary), &n)
 );
 ```
-## insight
-1. 当线程池关闭时，如果仍有任务添加到任务队列。对于单一任务，立即执行，批量任务，拒绝添加。
+## 0x03 insight
+1. 当线程池关闭时，如果仍有任务添加到任务队列。对于单一任务，立即执行，批量任务，拒绝添加
 2. 添加单一任务时，要 notify_one()，添加批量任务时，要 notify_all()
+3. deque 的双向添加功能用来服务优先任务(放入队头)
+4. 通过 bind 实现将带有参数的函数传入到只能接收无参函数的容器
+5. 下面两行代码的底层执行应该是一样的，bind 会返回一个 callable 对象，但是因为这里是个匿名对象(直接在传入参数是创建)，因此它相当于隐式 move 了，所以也就不需要显式 move
+``` c++ 
+tasks.emplace_back(std::bind(std::forward<Func>(f), std::forward<Args>(args)...));
+
+tasks.emplace_back(std::move(std::bind(std::forward<Func>(f), std::forward<Args>(args)...)));
+```
+
