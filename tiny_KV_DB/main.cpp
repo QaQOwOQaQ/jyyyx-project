@@ -10,12 +10,14 @@ void test1()
 {
     // create 
     SkipList<int,string> L;
+    
     // insert
     for(int i = 0; i < COUNT; i ++ )
     {
         string s = to_string(i) + "th";
         L.insert_element(i, s);
     }
+    
     // search
     for(int i = 0; i < COUNT; i ++ )
     {

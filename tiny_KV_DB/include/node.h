@@ -1,6 +1,10 @@
 #ifndef SKIPLIST_NODE_GUARD
 #define SKIPLIST_NODE_GUARD
 
+#include <vector>
+#include <iostream>
+#include <memory>
+
 /*=================*/
 /*   Node Define   */
 /*=================*/
@@ -21,7 +25,8 @@ public:
     void set_value(V);
 public:
     int node_level;
-    std::vector<Node<K,V>*> forward;
+    std::vector<typename std::shared_ptr<Node<K,V>>> forward;
+    // std::vector<std::shared_ptr<Node<K,V>>> forward;
 };
 
 

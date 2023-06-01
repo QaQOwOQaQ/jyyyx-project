@@ -24,9 +24,14 @@ std::mt19937 gen;
 /*=====================*/
 /*   SkipList Define   */
 /*=====================*/
+
 template<typename K, typename V>
 class SkipList
 {
+// template alias
+template<typename U1, typename U2>
+using SNode = std::shared_ptr<Node<U1,U2>>;
+
 public:
     SkipList();
     ~SkipList();
@@ -38,7 +43,7 @@ public:
     void load_file();
     int size() const ;
 private:
-    Node<K,V>* create_node(K,V,int/*level*/);
+    SNode<K,V> create_node(K,V,int/*level*/);
     int get_random_level(); // similar to my function name? hh😊
     bool is_valid_string(const std::string &str);
     void get_key_value_from_string(
@@ -49,20 +54,21 @@ private:
     // skip list cur element count
     int element_count;
     // pointer to head node
-    Node<K,V> *head;
+    SNode<K,V> head;
     // file operator
     std::ofstream file_writer;
     std::ifstream file_reader;
 };
 
+
+
 /*=======================*/
 /*   SkipList Implement  */
 /*=======================*/
 template<typename K, typename V>
-Node<K,V>* SkipList<K,V>::create_node(K _k,V _v,int _level)
+typename std::shared_ptr<Node<K,V>> SkipList<K,V>::create_node(K _k,V _v,int _level)
 {
-    Node<K,V> *newNode = new Node<K,V>(_k, _v, _level);
-    return newNode;
+    return std::make_shared<Node<K,V>>(_k, _v, _level);
 }
 
 // insert given (key,value) in skip list
@@ -96,7 +102,7 @@ int SkipList<K,V>::insert_element(K _key, V _value)
 {
     // create update array and initialize it
     // update is array which put node that node->forward[i] should be operated later
-    std::vector<Node<K,V>*> update(MAX_LEVEL + 1, head);
+    std::vector<SNode<K,V>> update(MAX_LEVEL + 1, head);
     
     // add mutex
     std::lock_guard<std::mutex> lock(mut);
@@ -113,7 +119,7 @@ int SkipList<K,V>::insert_element(K _key, V _value)
     // reached level 0 and forward pointer to right node
     // which is desired to insert key
     cur = cur->forward[0];
-
+    
     // if cur node have key equal to search key, we get it
     if(cur && cur->get_key() == _key)
     {
@@ -135,8 +141,8 @@ int SkipList<K,V>::insert_element(K _key, V _value)
         cur_level = random_level;
 
     // create new node with random level generated
-    auto newNode = create_node(_key, _value, random_level)  ;
-
+    auto newNode = create_node(_key, _value, random_level);
+    
     // insert node (update, newNode, update->next)
     for(int i = 0; i <= random_level; i ++ )
     {
@@ -191,6 +197,7 @@ void SkipList<K,V>::dump_file()
         // Kn:Vn
         file_writer << cur->get_key() << ":" << cur->get_value() << "\n";
         std::cout << cur->get_key() << ":" << cur->get_value() << ";\n";
+        // cur = cur->forward[0];
         cur = cur->forward[0];
     }
     // flush immediately
@@ -294,7 +301,7 @@ void SkipList<K,V>::delete_element(K _key)
 {
     std::lock_guard<std::mutex> lock(mut);
     auto cur = head;
-    std::vector<Node<K,V>*> update(MAX_LEVEL + 1, head);
+    std::vector<SNode<K,V>> update(MAX_LEVEL + 1, head);
     for(int i = cur_level; i >= 0; i -- )
     {
         while(cur->forward[i] && cur->forward[i]->get_key() < _key)
@@ -322,7 +329,7 @@ void SkipList<K,V>::delete_element(K _key)
 
 template<typename K, typename V>
 SkipList<K,V>::SkipList()
-: cur_level(0), element_count(0), head(new Node<K,V>(K(), V(), MAX_LEVEL))
+: cur_level(0), element_count(0), head(std::make_shared<Node<K,V>>(K(), V(), MAX_LEVEL))
 {}
 
 template<typename K, typename V>
@@ -330,7 +337,6 @@ SkipList<K,V>::~SkipList()
 {
     if(file_reader.is_open())   file_reader.close();
     if(file_writer.is_open())   file_writer.close();
-    delete head;
 }
 
 template<typename K, typename V>
